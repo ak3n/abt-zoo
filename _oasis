@@ -1,0 +1,12 @@
+OASISFormat: 0.4
+Name:        lambda-zoo
+Version:     
+Synopsis:    Lambdas.
+Authors:     Eugene Akentev
+License:     MIT
+Plugins:     META (0.4)
+Executable untyped
+  Path:       untyped
+  BuildTools: ocamlbuild
+  BuildDepends: core_kernel, abt
+  MainIs:     untyped.ml
