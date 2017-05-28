@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 6d68c30849da5a8c30238cf2eed2763c)
+# DO NOT EDIT (digest: 6884b0fdff604f79f695ce89f12eba3a)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -19,4 +19,9 @@ true: annot, bin_annot
 "untyped/untyped.byte": pkg_core_kernel
 <untyped/*.ml{,i,y}>: pkg_abt
 <untyped/*.ml{,i,y}>: pkg_core_kernel
+# Executable simply_typed
+"simply-typed/simply-typed.byte": pkg_abt
+"simply-typed/simply-typed.byte": pkg_core_kernel
+<simply-typed/*.ml{,i,y}>: pkg_abt
+<simply-typed/*.ml{,i,y}>: pkg_core_kernel
 # OASIS_STOP
