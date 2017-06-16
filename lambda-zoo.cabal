@@ -1,0 +1,38 @@
+name:                lambda-zoo
+version:             0.1.0.0
+-- synopsis:
+-- description:
+homepage:            https://github.com/ak3n/lambda-zoo#readme
+license:             BSD3
+license-file:        LICENSE
+author:              Eugene Akentev
+maintainer:          ak3ntev@gmail.com
+copyright:           2017 Eugene Akentev here
+build-type:          Simple
+extra-source-files:  README.md
+cabal-version:       >=1.10
+
+library
+  hs-source-dirs:      src
+  exposed-modules:     Util
+  build-depends:       base >= 4.7 && < 5
+                     , transformers == 0.5.2.0
+                     , abt
+  default-language:    Haskell2010
+
+executable untyped
+  hs-source-dirs:      src
+  main-is:             Untyped.hs
+  ghc-options:         -threaded -rtsopts -with-rtsopts=-N
+  build-depends:       base
+                     , lambda-zoo
+                     , abt
+                     , transformers == 0.5.2.0
+                     , vinyl == 0.5.3
+
+  default-language:    Haskell2010
+
+
+source-repository head
+  type:     git
+  location: https://github.com/ak3n/lambda-zoo
