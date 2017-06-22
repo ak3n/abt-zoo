@@ -5,11 +5,13 @@
 
 module Main where
 
-{- λ→ (Simply-typed lambda calculus)
+{- λω_ (STLC + higher-kinded type operators)
 
- k ::= ∗                  kinds
- A ::= p | A → B          types
- e ::= x | λx:A.e | e e   terms
+ k ::= ∗ | k → k                           kinds
+ A ::= a | p | A → B | λa:k.A | A B        types
+ e ::= x | λx:A.e | e e                    terms
+
+TLAM and TAPP are abstraction and application for the type level.
 
 -}
 
@@ -28,6 +30,8 @@ import Util
 data Lang ns where
   LAM :: Lang '[Z, S Z]
   APP :: Lang '[Z, Z]
+  TLAM :: Lang '[Z, S Z]
+  TAPP :: Lang '[Z, Z]
   TRUE :: Lang '[]
   FALSE :: Lang '[]
   IF :: Lang '[Z, Z, Z]
@@ -37,11 +41,14 @@ data Lang ns where
   ZERO :: Lang '[]
   SUCC :: Lang '[Z]
   KIND :: Lang '[]
+  KARROW :: Lang '[Z, Z]
 
 instance Show1 Lang where
   show1 = \case
     LAM -> "lam"
     APP -> "ap"
+    TLAM -> "tlam"
+    TAPP -> "tapp"
     TRUE -> "true"
     FALSE -> "false"
     IF -> "if"
@@ -51,10 +58,13 @@ instance Show1 Lang where
     ZERO -> "zero"
     SUCC -> "succ"
     KIND -> "*"
+    KARROW -> "-*>"
 
 instance HEq1 Lang where
   heq1 LAM LAM = Just Refl
   heq1 APP APP = Just Refl
+  heq1 TLAM TLAM = Just Refl
+  heq1 TAPP TAPP = Just Refl
   heq1 TRUE TRUE = Just Refl
   heq1 FALSE FALSE = Just Refl
   heq1 IF IF = Just Refl
@@ -62,8 +72,9 @@ instance HEq1 Lang where
   heq1 ARROW ARROW = Just Refl
   heq1 NAT NAT = Just Refl
   heq1 ZERO ZERO = Just Refl
-  heq1 SUCC SUCC = Just Refl  
+  heq1 SUCC SUCC = Just Refl
   heq1 KIND KIND = Just Refl
+  heq1 KARROW KARROW = Just Refl
   heq1 _ _ = Nothing
 
 lam :: Tm0 Lang -> Tm Lang (S Z) -> Tm0 Lang
@@ -71,6 +82,12 @@ lam t e = LAM $$ t :& e :& RNil
 
 app :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
 app m n = APP $$ m :& n :& RNil
+
+tlam :: Tm0 Lang -> Tm Lang (S Z) -> Tm0 Lang
+tlam t e = TLAM $$ t :& e :& RNil
+
+tapp :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
+tapp m n = TAPP $$ m :& n :& RNil
 
 true :: Tm0 Lang
 true = TRUE $$ RNil
@@ -99,6 +116,9 @@ succ t = SUCC $$ t :& RNil
 kind :: Tm0 Lang
 kind = KIND $$ RNil
 
+karrow :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
+karrow a b = KARROW $$ a :& b :& RNil
+
 step
   :: Tm0 Lang
   -> StepT M (Tm0 Lang)
@@ -108,6 +128,10 @@ step tm =
       out m >>= \case
         LAM :$ t :& xe :& RNil -> xe // n
         _ -> app <$> step m <*> pure n <|> app <$> pure m <*> step n
+    TAPP :$ m :& n :& RNil ->
+      out m >>= \case
+        TLAM :$ t :& xe :& RNil -> xe // n
+        _ -> tapp <$> step m <*> pure n <|> app <$> pure m <*> step n
     IF :$ c :& t1 :& t2 :& RNil ->
       out c >>= \case
         TRUE :$ RNil -> return t1
@@ -176,6 +200,20 @@ inferTy g tm = do
     NAT :$ RNil -> return kind
     BOOL :$ RNil -> return kind
     ARROW :$ _ :& _ :& RNil -> return kind
+    TLAM :$ t :& m :& RNil -> do
+        z <- fresh
+        em <- m // var z
+        ty <- inferTy ((z,t):g) em
+        return $ karrow t ty
+    TAPP :$ t1 :& t2 :& RNil -> do
+      t1Ty <- inferTy g t1
+      t2Ty <- inferTy g t2
+      out t1Ty >>= \case
+        KARROW :$ t1Ty1 :& t1Ty2 :& RNil ->
+          if t1Ty1 === t2Ty
+            then return t1Ty2
+            else raise "Parameter kind mismatch"
+        _ -> raise "Arrow kind expected"
     _ -> raise "Failure"
 
 eval :: Tm0 Lang -> Tm0 Lang
@@ -228,4 +266,23 @@ main = do
     x <- named "x"
     let tm = if_ true false true
     tmS <- toString $ eval tm
+    return tmS
+
+  judge $ do
+    x <- named "x"
+    let tm1 = (tlam kind (x \\ bool))
+    let tm2 = (tapp tm1 nat)
+    tmT1 <- inferTy [] tm1
+    tmT2 <- inferTy [] tm2
+    tmT1s <- toString tmT1
+    tmT2s <- toString tmT2
+    checkTy [] tm2 kind
+    return $ tmT1s ++ "  =>  " ++ tmT2s
+
+
+  putStrLn . runM $ do
+    x <- named "x"
+    let tm1 = (tlam kind (x \\ bool))
+    let tm2 = (tapp tm1 nat)
+    tmS <- toString $ eval tm2
     return tmS

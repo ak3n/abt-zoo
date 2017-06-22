@@ -4,6 +4,12 @@
 
 module Main where
 
+{- Untyped lambda calculus
+
+ e ::= x | λx:A.e | e e   terms
+
+-}
+
 import Control.Monad.Trans.Maybe
 import Control.Applicative
 import Data.Vinyl
@@ -81,18 +87,18 @@ omegaTm = do
 
 main :: IO ()
 main = do
-  print . runM $ do
+  putStrLn . runM $ do
     im <- identityTm
     imStr <- toString im
     return imStr
 
-  print . runM $ do
+  putStrLn . runM $ do
     mm <- appTm
     mmStr <- toString mm
     mmStr' <- toString $ eval mm
     return $ mmStr ++ " ~>* " ++ mmStr'
 
-  print . runM $ do
+  putStrLn . runM $ do
     omegam <- omegaTm
     omegaStr <- toString omegam
     -- infinite loop
