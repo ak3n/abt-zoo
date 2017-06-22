@@ -5,7 +5,7 @@
 
 module Main where
 
-{- λω_ (STLC + higher-kinded type operators)
+{- λω_ (STLC + higher-kinded type operators) aka Weak Lambda Omega
 
  k ::= ∗ | k → k                           kinds
  A ::= a | p | A → B | λa:k.A | A B        types
@@ -201,10 +201,16 @@ inferTy g tm = do
     BOOL :$ RNil -> return kind
     ARROW :$ _ :& _ :& RNil -> return kind
     TLAM :$ t :& m :& RNil -> do
-        z <- fresh
-        em <- m // var z
-        ty <- inferTy ((z,t):g) em
-        return $ karrow t ty
+      out t >>= \case
+        KIND :$ RNil -> act
+        KARROW :$ _ :& _ :& RNil -> act
+        _ -> raise "The type of tlam must be kind"
+        where
+          act = do
+            z <- fresh
+            em <- m // var z
+            ty <- inferTy ((z,t):g) em
+            return $ karrow t ty
     TAPP :$ t1 :& t2 :& RNil -> do
       t1Ty <- inferTy g t1
       t2Ty <- inferTy g t2
@@ -277,7 +283,7 @@ main = do
     tmT1s <- toString tmT1
     tmT2s <- toString tmT2
     checkTy [] tm2 kind
-    return $ tmT1s ++ "  =>  " ++ tmT2s
+    return $ tmT1s ++ "  ,  " ++ tmT2s
 
 
   putStrLn . runM $ do
