@@ -10,4 +10,4 @@ Implemented:
 # Useful links
 
 * http://www.rbjones.com/rbjpub/logic/cl/tlc001.htm
-* https://cstheory.stackexchange.com/questions/36054/how-do-you-get-the-calculus-of-constructions-from-the-other-points-in-the-lambda/36058#36058
+* https://cstheory.stackexchange.com/a/36071
