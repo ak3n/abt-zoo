@@ -5,15 +5,17 @@
 
 module Main where
 
-{- λω_ (STLC + higher-kinded type operators) aka Weak Lambda Omega
+{- λ2 (System F -- polymorphic or second order, Typed Lambda Calculus)
 
- k ::= ∗ | k → k                           kinds
- A ::= a | p | A → B | λa:k.A | A B        types
- e ::= x | λx:A.e | e e                    terms
+ k ::= ∗                                          kinds
+ A ::= a | p | A → B  | ∀a:k. A                   types
+ e ::= x | λx:A.e | e e | Λa:k. e | e [A]         terms
 
-TLAM and TAPP are abstraction and application for the type level.
+TLAM = Λa:k. e
+FORALL = ∀a:k. A
+TAPP = e [A]
 
--}
+ -}
 
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Except
@@ -30,8 +32,9 @@ import Util
 data Lang ns where
   LAM :: Lang '[Z, S Z]
   APP :: Lang '[Z, Z]
-  TLAM :: Lang '[Z, S Z]
+  TLAM :: Lang '[S Z]
   TAPP :: Lang '[Z, Z]
+  FORALL :: Lang '[S Z]
   TRUE :: Lang '[]
   FALSE :: Lang '[]
   IF :: Lang '[Z, Z, Z]
@@ -41,7 +44,6 @@ data Lang ns where
   ZERO :: Lang '[]
   SUCC :: Lang '[Z]
   KIND :: Lang '[]
-  KARROW :: Lang '[Z, Z]
 
 instance Show1 Lang where
   show1 = \case
@@ -49,6 +51,7 @@ instance Show1 Lang where
     APP -> "ap"
     TLAM -> "tlam"
     TAPP -> "tapp"
+    FORALL -> "forall"
     TRUE -> "true"
     FALSE -> "false"
     IF -> "if"
@@ -58,13 +61,13 @@ instance Show1 Lang where
     ZERO -> "zero"
     SUCC -> "succ"
     KIND -> "*"
-    KARROW -> "-*>"
 
 instance HEq1 Lang where
   heq1 LAM LAM = Just Refl
   heq1 APP APP = Just Refl
   heq1 TLAM TLAM = Just Refl
-  heq1 TAPP TAPP = Just Refl
+  heq1 TAPP TAPP = Just Refl  
+  heq1 FORALL FORALL = Just Refl
   heq1 TRUE TRUE = Just Refl
   heq1 FALSE FALSE = Just Refl
   heq1 IF IF = Just Refl
@@ -74,7 +77,6 @@ instance HEq1 Lang where
   heq1 ZERO ZERO = Just Refl
   heq1 SUCC SUCC = Just Refl
   heq1 KIND KIND = Just Refl
-  heq1 KARROW KARROW = Just Refl
   heq1 _ _ = Nothing
 
 lam :: Tm0 Lang -> Tm Lang (S Z) -> Tm0 Lang
@@ -83,11 +85,14 @@ lam t e = LAM $$ t :& e :& RNil
 app :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
 app m n = APP $$ m :& n :& RNil
 
-tlam :: Tm0 Lang -> Tm Lang (S Z) -> Tm0 Lang
-tlam t e = TLAM $$ t :& e :& RNil
+tlam :: Tm Lang (S Z) -> Tm0 Lang
+tlam e = TLAM $$ e :& RNil
 
 tapp :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
 tapp m n = TAPP $$ m :& n :& RNil
+
+forall :: Tm Lang (S Z) -> Tm0 Lang
+forall e = FORALL $$ e :& RNil
 
 true :: Tm0 Lang
 true = TRUE $$ RNil
@@ -116,9 +121,6 @@ succ t = SUCC $$ t :& RNil
 kind :: Tm0 Lang
 kind = KIND $$ RNil
 
-karrow :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
-karrow a b = KARROW $$ a :& b :& RNil
-
 step
   :: Tm0 Lang
   -> StepT M (Tm0 Lang)
@@ -130,7 +132,7 @@ step tm =
         _ -> app <$> step m <*> pure n <|> app <$> pure m <*> step n
     TAPP :$ m :& n :& RNil ->
       out m >>= \case
-        TLAM :$ t :& xe :& RNil -> xe // n
+        TLAM :$ xe :& RNil -> xe // n
         _ -> tapp <$> step m <*> pure n <|> app <$> pure m <*> step n
     IF :$ c :& t1 :& t2 :& RNil ->
       out c >>= \case
@@ -168,10 +170,10 @@ inferTy g tm = do
     V v | Just (eval -> ty) <- lookup v g -> return ty
         | otherwise -> raise "Ill-scoped variable"
     LAM :$ t :& m :& RNil -> do
-      z <- fresh
-      em <- m // var z
-      ty <- inferTy ((z,t):g) em
-      return $ arrow t ty
+        z <- fresh
+        em <- m // var z
+        ty <- inferTy ((z,t):g) em
+        return $ arrow t ty
     APP :$ t1 :& t2 :& RNil -> do
       t1Ty <- inferTy g t1
       t2Ty <- inferTy g t2
@@ -200,26 +202,26 @@ inferTy g tm = do
     NAT :$ RNil -> return kind
     BOOL :$ RNil -> return kind
     ARROW :$ _ :& _ :& RNil -> return kind
-    TLAM :$ t :& m :& RNil -> do
-      out t >>= \case
-        KIND :$ RNil -> act
-        KARROW :$ _ :& _ :& RNil -> act
-        _ -> raise "The type of tlam must be kind"
-        where
-          act = do
-            z <- fresh
-            em <- m // var z
-            ty <- inferTy ((z,t):g) em
-            return $ karrow t ty
+    FORALL :$ m :& RNil -> do
+      z <- fresh
+      em <- m // var z
+      ty <- inferTy ((z,kind):g) em
+      return kind
+    TLAM :$ m :& RNil -> do
+      v :\ e <- out m
+      z <- clone v
+      em <- m // var z
+      ty <- inferTy ((z,kind):g) em
+      return $ forall (v \\ ty)
     TAPP :$ t1 :& t2 :& RNil -> do
       t1Ty <- inferTy g t1
       t2Ty <- inferTy g t2
       out t1Ty >>= \case
-        KARROW :$ t1Ty1 :& t1Ty2 :& RNil ->
-          if t1Ty1 === t2Ty
-            then return t1Ty2
-            else raise "Parameter kind mismatch"
-        _ -> raise "Arrow kind expected"
+        FORALL :$ tTy :& RNil ->
+          if t2Ty === kind
+            then eval <$> tTy // t2
+            else raise "The argument should be a type"
+        _ -> raise "Forall type expected"
     _ -> raise "Failure"
 
 eval :: Tm0 Lang -> Tm0 Lang
@@ -276,26 +278,15 @@ main = do
 
   judge $ do
     x <- named "x"
-    let tm1 = (tlam kind (x \\ bool))
-    let tm2 = (tapp tm1 nat)
-    tmT1 <- inferTy [] tm1
-    tmT2 <- inferTy [] tm2
-    tmT1s <- toString tmT1
-    tmT2s <- toString tmT2
-    checkTy [] tm2 kind
-    return $ tmT1s ++ "  ,  " ++ tmT2s
-
-  judge $ do
-    x <- named "x"
     a <- named "a"
-    let tm = (lam (var a) (x \\ (var x)))
-    tms <- toString tm
-    checkTy [] tm (arrow (var a) (var a))
-    return $ tms
+    let tm = (tlam (a \\ (lam (var a) (x \\ (var x)))))
+    tmT <- inferTy [] tm
+    tmS <- toString tmT
+    return tmS
 
   putStrLn . runM $ do
     x <- named "x"
-    let tm1 = (tlam kind (x \\ bool))
-    let tm2 = (tapp tm1 nat)
-    tmS <- toString $ eval tm2
+    a <- named "a"
+    let tm = (tlam (a \\ (lam (var a) (x \\ (var x)))))
+    tmS <- toString $ eval (tapp tm nat)
     return tmS
