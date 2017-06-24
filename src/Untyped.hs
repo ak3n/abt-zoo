@@ -2,7 +2,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Main where
+module Untyped where
 
 {- Untyped lambda calculus
 
@@ -84,23 +84,3 @@ omegaTm = do
   let appxx = app (var x) (var x)
   let t = lam (x \\ appxx)
   return $ app t t
-
-main :: IO ()
-main = do
-  putStrLn . runM $ do
-    im <- identityTm
-    imStr <- toString im
-    return imStr
-
-  putStrLn . runM $ do
-    mm <- appTm
-    mmStr <- toString mm
-    mmStr' <- toString $ eval mm
-    return $ mmStr ++ " ~>* " ++ mmStr'
-
-  putStrLn . runM $ do
-    omegam <- omegaTm
-    omegaStr <- toString omegam
-    -- infinite loop
-    -- mmStr <- toString $ eval omegam
-    return omegaStr
