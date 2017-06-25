@@ -5,8 +5,9 @@ import Test.Tasty.HUnit
 
 import UntypedTests
 import STLCTests
+import STLCHKTTests
 
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Tests" [untypedTests, stlcTests]
+tests = testGroup "Tests" [untypedTests, stlcTests, stlchktTests]

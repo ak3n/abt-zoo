@@ -3,7 +3,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Main where
+module STLCHKT where
 
 {- λω_ (STLC + higher-kinded type operators) aka Weak Lambda Omega
 
@@ -225,77 +225,5 @@ inferTy g tm = do
 eval :: Tm0 Lang -> Tm0 Lang
 eval = runM . star step
 
-judge :: JudgeT M String -> IO ()
-judge = either fail putStrLn . runM . runExceptT . runJudgeT
-
-main :: IO ()
-main = do
-  judge $ do
-    ty <- inferTy [] false
-    tyS <- toString ty
-    return tyS
-
-  judge $ do
-    x <- named "x"
-    ty <- inferTy [] (lam bool (x \\ var x))
-    tyS <- toString ty
-    return tyS
-
-  judge $ do
-    x <- named "x"
-    checkTy [] (lam bool (x \\ var x)) (arrow bool bool)
-    return "Success"
-
-  judge $ do
-    checkTy [] false bool
-    return "Success"
-
-  judge $ do
-    x <- named "x"
-    let tm = (app (lam bool (x \\ var x)) true)
-    tmT <- inferTy [] tm
-    checkTy [] tm bool
-    return "Success"
-
-  judge $ do
-    tmT <- inferTy [] (succ zero)
-    tmS <- toString tmT
-    return tmS
-
-  putStrLn . runM $ do
-    x <- named "x"
-    let tm = (app (lam bool (x \\ false)) true)
-    tmS <- toString $ eval tm
-    return tmS
-
-  putStrLn . runM $ do
-    x <- named "x"
-    let tm = if_ true false true
-    tmS <- toString $ eval tm
-    return tmS
-
-  judge $ do
-    x <- named "x"
-    let tm1 = (tlam kind (x \\ bool))
-    let tm2 = (tapp tm1 nat)
-    tmT1 <- inferTy [] tm1
-    tmT2 <- inferTy [] tm2
-    tmT1s <- toString tmT1
-    tmT2s <- toString tmT2
-    checkTy [] tm2 kind
-    return $ tmT1s ++ "  ,  " ++ tmT2s
-
-  judge $ do
-    x <- named "x"
-    a <- named "a"
-    let tm = (lam (var a) (x \\ (var x)))
-    tms <- toString tm
-    checkTy [] tm (arrow (var a) (var a))
-    return $ tms
-
-  putStrLn . runM $ do
-    x <- named "x"
-    let tm1 = (tlam kind (x \\ bool))
-    let tm2 = (tapp tm1 nat)
-    tmS <- toString $ eval tm2
-    return tmS
+judge :: JudgeT M a -> IO a
+judge = either fail return . runM . runExceptT . runJudgeT
