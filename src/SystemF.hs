@@ -3,7 +3,7 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module Main where
+module SystemF where
 
 {- λ2 (System F -- polymorphic or second order, Typed Lambda Calculus)
 
@@ -212,7 +212,7 @@ inferTy g tm = do
       z <- clone v
       em <- m // var z
       ty <- inferTy ((z,kind):g) em
-      return $ forall (v \\ ty)
+      return $ forall (z \\ ty)
     TAPP :$ t1 :& t2 :& RNil -> do
       t1Ty <- inferTy g t1
       t2Ty <- inferTy g t2
@@ -227,66 +227,5 @@ inferTy g tm = do
 eval :: Tm0 Lang -> Tm0 Lang
 eval = runM . star step
 
-judge :: JudgeT M String -> IO ()
-judge = either fail putStrLn . runM . runExceptT . runJudgeT
-
-main :: IO ()
-main = do
-  judge $ do
-    ty <- inferTy [] false
-    tyS <- toString ty
-    return tyS
-
-  judge $ do
-    x <- named "x"
-    ty <- inferTy [] (lam bool (x \\ var x))
-    tyS <- toString ty
-    return tyS
-
-  judge $ do
-    x <- named "x"
-    checkTy [] (lam bool (x \\ var x)) (arrow bool bool)
-    return "Success"
-
-  judge $ do
-    checkTy [] false bool
-    return "Success"
-
-  judge $ do
-    x <- named "x"
-    let tm = (app (lam bool (x \\ var x)) true)
-    tmT <- inferTy [] tm
-    checkTy [] tm bool
-    return "Success"
-
-  judge $ do
-    tmT <- inferTy [] (succ zero)
-    tmS <- toString tmT
-    return tmS
-
-  putStrLn . runM $ do
-    x <- named "x"
-    let tm = (app (lam bool (x \\ false)) true)
-    tmS <- toString $ eval tm
-    return tmS
-
-  putStrLn . runM $ do
-    x <- named "x"
-    let tm = if_ true false true
-    tmS <- toString $ eval tm
-    return tmS
-
-  judge $ do
-    x <- named "x"
-    a <- named "a"
-    let tm = (tlam (a \\ (lam (var a) (x \\ (var x)))))
-    tmT <- inferTy [] tm
-    tmS <- toString tmT
-    return tmS
-
-  putStrLn . runM $ do
-    x <- named "x"
-    a <- named "a"
-    let tm = (tlam (a \\ (lam (var a) (x \\ (var x)))))
-    tmS <- toString $ eval (tapp tm nat)
-    return tmS
+judge :: JudgeT M a -> IO a
+judge = either fail return . runM . runExceptT . runJudgeT
