@@ -70,4 +70,39 @@ systemFOmegaTests = testGroup "System F Omega"
         return $ ty === (arrow nat nat) && res === (lam nat (x \\ (var x)))
 
       assertBool "" result
+
+  , testCase "pairs typecheck fine" $ do
+      judge $ do
+        x <- named "x"
+        y <- named "y"
+        a <- named "A"
+        b <- named "B"
+        c <- named "C"
+        k <- named "k"
+        p <- named "p"
+
+        -- λA::*.λB::*.∀C::*.(A -> B -> C) -> C;
+        let pairTy = tlam kind (a \\ tlam kind (b \\ forall (c \\ arrow (arrow (var a) (arrow (var b) (var c))) (var c))))
+        -- check that the type is * -> * -> *
+        checkTy [] pairTy (karrow kind (karrow kind kind))
+
+        -- ΛA::*.ΛB::*.λx:A.λy:B.ΛC::*.λk:(A -> B -> C).k x y;
+        let aTobToC = (arrow (var a) (arrow (var b) (var c))) -- A -> B -> C as (A -> (B -> C))
+        let kxy = (app (app (var k) (var x)) (var y)) -- k x y as (k x) y
+        let pair = plam (a \\ (plam (b \\ lam (var a) (x \\ lam (var b) (y \\ plam (c \\ lam aTobToC (k \\ kxy)))))))
+        -- check that the type is ∀A.∀B.A → B → (∀C.(A→B→C) → C)
+        checkTy [] pair (forall (a \\ (forall (b \\ (arrow (var a) (arrow (var b) (forall (c \\ arrow aTobToC (var c)))))))))
+
+        -- ΛA::*.ΛB::*.λp:Pair A B.p [A] (λx:A.λy:B.x);
+        let pairAB = tapp (tapp pairTy (var a)) (var b)
+        let fstTm = lam (var a) (x \\ lam (var b) (y \\ (var x)))
+        let fst = plam (a \\ (plam (b \\ (lam pairAB (p \\ (app (ttapp (var p) (var a)) fstTm))))))
+        -- check that the type is ∀A.∀B.Pair A B → A
+        checkTy [] fst (forall (a \\ (forall (b \\ (arrow pairAB (var a))))))
+
+        -- ΛA::*.ΛB::*.λp:Pair A B.p [B] (λx:A.λy:B.b);
+        let sndTm = lam (var a) (x \\ lam (var b) (y \\ (var y)))
+        let snd = plam (a \\ (plam (b \\ (lam pairAB (p \\ (app (ttapp (var p) (var b)) sndTm))))))
+        -- check that the type is ∀A.∀B.Pair A B → B
+        checkTy [] snd (forall (a \\ (forall (b \\ (arrow pairAB (var b))))))
   ]

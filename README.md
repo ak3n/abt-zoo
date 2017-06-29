@@ -6,6 +6,7 @@ Implemented:
 * simply-typed
 * simply-typed with higher-kinded type operators (Weak Lambda Omega)
 * system f
+* system f omega
 
 # Useful links
 
