@@ -7,8 +7,14 @@ import UntypedTests
 import STLCTests
 import STLCHKTTests
 import SystemFTests
+import SystemFOmegaTests
 
 main = defaultMain tests
 
 tests :: TestTree
-tests = testGroup "Tests" [untypedTests, stlcTests, stlchktTests, systemFTests]
+tests = testGroup "Tests" [ untypedTests
+                          , stlcTests
+                          , stlchktTests
+                          , systemFTests
+                          , systemFOmegaTests
+                          ]

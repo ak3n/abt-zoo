@@ -19,6 +19,7 @@ library
                      , STLC
                      , STLCHKT
                      , SystemF
+                     , SystemFOmega
   build-depends:       base >= 4.7 && < 5
                      , transformers == 0.5.2.0
                      , abt
@@ -33,6 +34,7 @@ test-suite Test
                 , STLCTests
                 , STLCHKTTests
                 , SystemFTests
+                , SystemFOmegaTests
   build-depends:       base
                      , lambda-zoo
                      , abt
