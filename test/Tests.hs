@@ -8,6 +8,7 @@ import STLCTests
 import STLCHKTTests
 import SystemFTests
 import SystemFOmegaTests
+import LambdaPiTests
 
 main = defaultMain tests
 
@@ -17,4 +18,5 @@ tests = testGroup "Tests" [ untypedTests
                           , stlchktTests
                           , systemFTests
                           , systemFOmegaTests
+                          , lambdaPiTests
                           ]

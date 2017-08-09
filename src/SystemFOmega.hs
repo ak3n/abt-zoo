@@ -5,8 +5,7 @@
 
 module SystemFOmega where
 
-{- λ2 (System F Omega -- polymorphic or second order, Typed Lambda Calculus)
-
+{- λ2 (System F Omega)
 
  k ::= ∗ | k → k                                  kinds
  A ::= a | p | A → B  | ∀a:k. A | λa:k.A | A B    types
@@ -154,11 +153,11 @@ step tm =
     TTAPP :$ m :& n :& RNil ->
       out m >>= \case
         PLAM :$ xe :& RNil -> xe // n
-        _ -> ttapp <$> step m <*> pure n <|> app <$> pure m <*> step n
+        _ -> ttapp <$> step m <*> pure n <|> ttapp <$> pure m <*> step n
     TAPP :$ m :& n :& RNil ->
       out m >>= \case
         TLAM :$ t :& xe :& RNil -> xe // n
-        _ -> tapp <$> step m <*> pure n <|> app <$> pure m <*> step n
+        _ -> tapp <$> step m <*> pure n <|> tapp <$> pure m <*> step n
     IF :$ c :& t1 :& t2 :& RNil ->
       out c >>= \case
         TRUE :$ RNil -> return t1

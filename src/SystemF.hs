@@ -133,7 +133,7 @@ step tm =
     TAPP :$ m :& n :& RNil ->
       out m >>= \case
         TLAM :$ xe :& RNil -> xe // n
-        _ -> tapp <$> step m <*> pure n <|> app <$> pure m <*> step n
+        _ -> tapp <$> step m <*> pure n <|> tapp <$> pure m <*> step n
     IF :$ c :& t1 :& t2 :& RNil ->
       out c >>= \case
         TRUE :$ RNil -> return t1

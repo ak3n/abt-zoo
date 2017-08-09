@@ -3,15 +3,15 @@
 {-# LANGUAGE ViewPatterns #-}
 {-# LANGUAGE LambdaCase #-}
 
-module STLCHKT where
+module LambdaPi where
 
-{- λω_ (STLC + higher-kinded type operators) aka Weak Lambda Omega
+{- λP (LF)
 
- k ::= ∗ | k → k                           kinds
- A ::= a | p | A → B | λa:k.A | A B        types
- e ::= x | λx:A.e | e e                    terms
+ k ::= ∗                                  kinds
+ A ::= a | Πx:A. B                        types
+ e ::= x | λx:A.e | e e                   terms
 
-TLAM and TAPP are abstraction and application for the type level.
+PI = Πx:A. B
 
 -}
 
@@ -24,57 +24,51 @@ import Abt.Class
 import Abt.Types
 import Abt.Concrete.LocallyNameless
 
-import Prelude hiding (succ)
+import Prelude hiding (succ, pi)
 import Util
 
 data Lang ns where
   LAM :: Lang '[Z, S Z]
   APP :: Lang '[Z, Z]
-  TLAM :: Lang '[Z, S Z]
-  TAPP :: Lang '[Z, Z]
+  PI :: Lang '[Z, S Z]
   TRUE :: Lang '[]
   FALSE :: Lang '[]
   IF :: Lang '[Z, Z, Z]
   BOOL :: Lang '[]
-  ARROW :: Lang '[Z, Z]
   NAT :: Lang '[]
   ZERO :: Lang '[]
   SUCC :: Lang '[Z]
   KIND :: Lang '[]
-  KARROW :: Lang '[Z, Z]
+  UNIVERSE :: Lang '[Z]
 
 instance Show1 Lang where
   show1 = \case
     LAM -> "lam"
     APP -> "ap"
-    TLAM -> "tlam"
-    TAPP -> "tapp"
+    PI -> "pi"
     TRUE -> "true"
     FALSE -> "false"
     IF -> "if"
     BOOL -> "bool"
-    ARROW -> "->"
     NAT -> "nat"
     ZERO -> "zero"
     SUCC -> "succ"
     KIND -> "*"
-    KARROW -> "-*>"
+    UNIVERSE -> "type"
 
 instance HEq1 Lang where
   heq1 LAM LAM = Just Refl
   heq1 APP APP = Just Refl
-  heq1 TLAM TLAM = Just Refl
-  heq1 TAPP TAPP = Just Refl
+  heq1 PI PI = Just Refl
   heq1 TRUE TRUE = Just Refl
   heq1 FALSE FALSE = Just Refl
   heq1 IF IF = Just Refl
   heq1 BOOL BOOL = Just Refl
-  heq1 ARROW ARROW = Just Refl
   heq1 NAT NAT = Just Refl
   heq1 ZERO ZERO = Just Refl
-  heq1 SUCC SUCC = Just Refl
+  heq1 SUCC SUCC = Just Refl  
   heq1 KIND KIND = Just Refl
-  heq1 KARROW KARROW = Just Refl
+  heq1 UNIVERSE UNIVERSE = Just Refl
   heq1 _ _ = Nothing
 
 lam :: Tm0 Lang -> Tm Lang (S Z) -> Tm0 Lang
@@ -83,11 +77,8 @@ lam t e = LAM $$ t :& e :& RNil
 app :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
 app m n = APP $$ m :& n :& RNil
 
-tlam :: Tm0 Lang -> Tm Lang (S Z) -> Tm0 Lang
-tlam t e = TLAM $$ t :& e :& RNil
-
-tapp :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
-tapp m n = TAPP $$ m :& n :& RNil
+pi :: Tm0 Lang -> Tm Lang (S Z) -> Tm0 Lang
+pi t e = PI $$ t :& e :& RNil
 
 true :: Tm0 Lang
 true = TRUE $$ RNil
@@ -101,9 +92,6 @@ if_ c t1 t2 = IF $$ c :& t1 :& t2 :& RNil
 bool :: Tm0 Lang
 bool = BOOL $$ RNil
 
-arrow :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
-arrow a b = ARROW $$ a :& b :& RNil
-
 nat :: Tm0 Lang
 nat = NAT $$ RNil
 
@@ -116,8 +104,20 @@ succ t = SUCC $$ t :& RNil
 kind :: Tm0 Lang
 kind = KIND $$ RNil
 
-karrow :: Tm0 Lang -> Tm0 Lang -> Tm0 Lang
-karrow a b = KARROW $$ a :& b :& RNil
+universe :: Tm0 Lang -> Tm0 Lang
+universe level = UNIVERSE $$ level :& RNil
+
+maxNat
+  :: Tm0 Lang
+  -> Tm0 Lang
+  -> JudgeT M (Tm0 Lang)
+maxNat a b =
+  (,) <$> out a <*> out b >>= \case
+    (ZERO :$ RNil, SUCC :$ k :& RNil) -> return $ succ k
+    (SUCC :$ k :& RNil, ZERO :$ RNil) -> return $ succ k
+    (SUCC :$ k1 :& RNil, SUCC :$ k2 :& RNil) -> do
+      s <- maxNat k1 k2
+      return $ succ s
 
 step
   :: Tm0 Lang
@@ -128,10 +128,6 @@ step tm =
       out m >>= \case
         LAM :$ t :& xe :& RNil -> xe // n
         _ -> app <$> step m <*> pure n <|> app <$> pure m <*> step n
-    TAPP :$ m :& n :& RNil ->
-      out m >>= \case
-        TLAM :$ t :& xe :& RNil -> xe // n
-        _ -> tapp <$> step m <*> pure n <|> tapp <$> pure m <*> step n
     IF :$ c :& t1 :& t2 :& RNil ->
       out c >>= \case
         TRUE :$ RNil -> return t1
@@ -159,6 +155,26 @@ checkTy g tm ty = do
     then return ()
     else raise "Type error"
 
+inferUniverse
+  :: Ctx
+  -> Tm0 Lang
+  -> JudgeT M (Tm0 Lang)
+inferUniverse g t = do
+  u <- inferTy g t
+  out (eval u) >>= \case
+    UNIVERSE :$ k :& RNil -> return k
+    _ -> raise "Type expected"
+
+inferPi
+  :: Ctx
+  -> Tm0 Lang
+  -> JudgeT M (Tm0 Lang, Tm Lang (S Z))
+inferPi g e = do
+  t <- inferTy g e
+  out (eval t) >>= \case
+    PI :$ m :& n :& RNil -> return (m, n)
+    _ -> raise "Function expected"
+
 inferTy
   :: Ctx
   -> Tm0 Lang
@@ -168,19 +184,17 @@ inferTy g tm = do
     V v | Just (eval -> ty) <- lookup v g -> return ty
         | otherwise -> raise "Ill-scoped variable"
     LAM :$ t :& m :& RNil -> do
-      z <- fresh
-      em <- m // var z
-      ty <- inferTy ((z,t):g) em
-      return $ arrow t ty
-    APP :$ t1 :& t2 :& RNil -> do
-      t1Ty <- inferTy g t1
-      t2Ty <- inferTy g t2
-      out t1Ty >>= \case
-        ARROW :$ t1Ty1 :& t1Ty2 :& RNil ->
-          if t1Ty1 === t2Ty
-            then return t1Ty2
-            else raise "Parameter type mismatch"
-        _ -> raise "Arrow type expected"
+        _ <- inferUniverse g t
+        z <- fresh
+        em <- m // var z
+        ty <- inferTy ((z,t):g) em
+        return $ pi t (z \\ ty)
+    APP :$ e1 :& e2 :& RNil -> do
+      (s, t) <- inferPi g e1
+      te <- inferTy g e2
+      if te === s
+        then t // e2
+        else raise "Types mismatch"
     IF :$ c :& t1 :& t2 :& RNil -> do
       cty <- inferTy g c
       t1ty <- inferTy g t1
@@ -197,29 +211,16 @@ inferTy g tm = do
       if ty === nat
         then return nat
         else raise "The argument is not a number"
-    NAT :$ RNil -> return kind
-    BOOL :$ RNil -> return kind
-    ARROW :$ _ :& _ :& RNil -> return kind
-    TLAM :$ t :& m :& RNil -> do
-      out t >>= \case
-        KIND :$ RNil -> act
-        KARROW :$ _ :& _ :& RNil -> act
-        _ -> raise "The type of tlam must be kind"
-        where
-          act = do
-            z <- fresh
-            em <- m // var z
-            ty <- inferTy ((z,t):g) em
-            return $ karrow t ty
-    TAPP :$ t1 :& t2 :& RNil -> do
-      t1Ty <- inferTy g t1
-      t2Ty <- inferTy g t2
-      out t1Ty >>= \case
-        KARROW :$ t1Ty1 :& t1Ty2 :& RNil ->
-          if t1Ty1 === t2Ty
-            then return t1Ty2
-            else raise "Parameter kind mismatch"
-        _ -> raise "Arrow kind expected"
+    NAT :$ RNil -> return $ universe zero
+    BOOL :$ RNil -> return $ universe zero
+    PI :$ m :& n :& RNil -> do
+      u1 <- inferUniverse g m
+      z <- fresh
+      en <- n // var z
+      u2 <- inferUniverse ((z, m):g) en
+      u <- maxNat u1 u2
+      return $ universe u
+    UNIVERSE :$ k :& RNil -> return $ universe (succ k)
     _ -> raise "Failure"
 
 eval :: Tm0 Lang -> Tm0 Lang

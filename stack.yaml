@@ -16,6 +16,9 @@
 #  name: custom-snapshot
 #  location: "./custom-snapshot.yaml"
 resolver: lts-8.18
+compiler: ghc-8.2.1
+compiler-check: match-exact
+allow-newer: true
 
 # User packages to be built.
 # Various formats can be used as shown in the example below.
@@ -40,6 +43,10 @@ packages:
 - location:
     git: git@github.com:jonsterling/hs-abt.git
     commit: e15d504ee0e71b9810c4565aeb06d4a7f34700cd
+  extra-dep: true
+- location:
+    git: https://github.com/haskell/deepseq.git
+    commit: 0b22c9825ef79c1ee41d2f19e7c997f5cdc93494
   extra-dep: true
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)
