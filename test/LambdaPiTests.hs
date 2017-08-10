@@ -42,4 +42,11 @@ lambdaPiTests = testGroup "Lambda Pi"
             return $ (eval tm) === false
 
       assertBool "" result
+  , testCase "polymorphic identity" $ do
+      judge $ do
+        a <- named "a"
+        x <- named "x"
+        let identity = lam (universe zero) (x \\ var x)
+        ty <- inferTy [] identity
+        checkTy [] identity (pi (universe zero) (x \\ universe zero))
   ]

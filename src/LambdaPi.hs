@@ -185,7 +185,8 @@ inferTy g tm = do
         | otherwise -> raise "Ill-scoped variable"
     LAM :$ t :& m :& RNil -> do
         _ <- inferUniverse g t
-        z <- fresh
+        v :\ e <- out m
+        z <- clone v
         em <- m // var z
         ty <- inferTy ((z,t):g) em
         return $ pi t (z \\ ty)
@@ -215,7 +216,8 @@ inferTy g tm = do
     BOOL :$ RNil -> return $ universe zero
     PI :$ m :& n :& RNil -> do
       u1 <- inferUniverse g m
-      z <- fresh
+      v :\ e <- out n
+      z <- clone v
       en <- n // var z
       u2 <- inferUniverse ((z, m):g) en
       u <- maxNat u1 u2
