@@ -9,7 +9,7 @@ import Abt.Concrete.LocallyNameless
 
 import Util
 import LambdaPi
-import Prelude hiding (pi)
+import Prelude hiding (pi, succ)
 
 
 lambdaPiTests = testGroup "Lambda Pi"
@@ -42,6 +42,7 @@ lambdaPiTests = testGroup "Lambda Pi"
             return $ (eval tm) === false
 
       assertBool "" result
+
   , testCase "polymorphic identity" $ do
       judge $ do
         a <- named "a"
@@ -49,4 +50,28 @@ lambdaPiTests = testGroup "Lambda Pi"
         let identity = lam (universe zero) (x \\ var x)
         ty <- inferTy [] identity
         checkTy [] identity (pi (universe zero) (x \\ universe zero))
+
+  , testCase "vectors" $ do
+      judge $ do
+        let natVec = vec nat (succ zero)
+        checkTy [] natVec (universe zero)
+
+  , testCase "one plus two" $ do
+      result <- judge $ do
+        z <- fresh
+        z' <- fresh
+        n <- named "n"
+        k <- named "k"
+        rec <- named "rec"
+        let natToNat = pi nat (z' \\ nat)
+        let plus = natelim (lam nat (z \\ natToNat))
+                           (lam nat (n \\ (var n)))
+                           (lam nat (k \\ (lam natToNat (rec \\ (lam nat (n \\ (succ (app (var rec) (var n)))))))))
+        let one = succ zero
+        let two = succ (succ zero)
+        let three = eval (app (plus one) two)
+        checkTy [] (plus one) (natToNat)
+        return $ three === succ (succ (succ zero))
+
+      assertBool "" result
   ]
